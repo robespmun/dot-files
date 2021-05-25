@@ -32,16 +32,19 @@ values."
    dotspacemacs-configuration-layer-path '()
    ;; List of configuration layers to load.
    dotspacemacs-configuration-layers
-   '(typescript
+   '(
+     (typescript :variables
+                 javascript-backend 'tide)
      html
+     (javascript :variables
+                 node-add-modules-path t
+                 javascript-backend 'tide)
      sql
      python
      yaml
      ruby
      elixir
      graphviz
-     react
-     javascript
      ;; ----------------------------------------------------------------
      ;; Example of useful layers you may want to use right away.
      ;; Uncomment some layer names and press <SPC f e R> (Vim style) or
@@ -66,8 +69,9 @@ values."
    ;; configuration in `dotspacemacs/user-config'.
    dotspacemacs-additional-packages '(
      add-node-modules-path
+     yasnippet-snippets
      evil-surround
-     ;; prettier-js
+     rjsx-mode
                                       )
    ;; A list of packages that cannot be updated.
    dotspacemacs-frozen-packages '()
@@ -80,7 +84,7 @@ values."
    ;; `used-but-keep-unused' installs only the used packages but won't uninstall
    ;; them if they become unused. `all' installs *all* packages supported by
    ;; Spacemacs and never uninstall them. (default is `used-only')
-   dotspacemacs-install-packages 'used-only))
+   dotspacemacs-install-packages 'used-but-keep-unused))
 
 (defun dotspacemacs/init ()
   "Initialization function.
@@ -315,13 +319,40 @@ executes.
 before packages are loaded. If you are unsure, you should try in setting them in
 `dotspacemacs/user-config' first."
   ;; (javascript :variables js2-mode-show-strict-warnings nil)
+  (add-hook 'javascript-mode-hook 'add-node-modules-path)
+  (add-hook 'rjsx-mode-hook 'add-node-modules-path)
   )
 
 (defun dotspacemacs/user-config ()
-  ;; (add-hook 'js2-mode-hook 'prettier-js-mode)
+  (add-to-list 'yas-snippet-dirs "~/snippets")
+  (yas-global-mode 1)
+  (global-company-mode)
+
+  (defun tide-setup-hook ()
+    (tide-setup)
+    (eldoc-mode)
+    (tide-hl-identifier-mode +1)
+    (setq web-mode-enable-auto-quoting nil)
+    (set (make-local-variable 'company-backends)
+         '((company-tide company-files :with company-yasnippet)
+           (company-dabbrev-code company-dabbrev))))
+
+  (add-to-list 'auto-mode-alist '("\\.js.*$" . rjsx-mode))
+  (add-to-list 'auto-mode-alist '("\\.json$" . json-mode))
+  (add-hook 'rjsx-mode-hook 'tide-setup-hook 'add-node-modules-path 'company-mode)
+  (add-hook 'rjsx-mode-hook 'flycheck-mode)
+
+  (add-hook 'web-mode-hook 'tide-setup-hook
+            (lambda () (pcase (file-name-extension buffer-file-name)
+                         ("tsx" ('tide-setup-hook))
+                         (_ (my-web-mode-hook)))))
+  (add-hook 'web-mode-hook 'company-mode)
+  (add-hook 'web-mode-hook #'turn-on-smartparens-mode t)
+
   (setq js2-mode-show-parse-errors nil js2-mode-show-strict-warnings nil)
-  (eval-after-load 'js2-mode
-    '(add-hook 'js2-mode-hook #'add-node-modules-path))
+  ;; (eval-after-load 'js2-mode
+  ;;   '(add-hook 'js2-mode-hook 'add-node-modules-path))
+
   "Configuration function for user code.
 This function is called at the very end of Spacemacs initialization after
 layers configuration.
@@ -362,16 +393,15 @@ This function is called at the very end of Spacemacs initialization."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(evil-want-Y-yank-to-eol nil)
  '(org-agenda-files (quote ("~/todo.org")))
  '(package-selected-packages
    (quote
-    (tide typescript-mode import-js grizzl lv transient sql-indent ox-reveal flyspell-correct-ivy flyspell-correct auto-dictionary helm-themes helm-swoop helm-projectile helm-mode-manager helm-flx helm-descbinds helm-ag ace-jump-helm-line yapfify pyvenv pytest pyenv-mode py-isort pip-requirements live-py-mode hy-mode cython-mode company-anaconda anaconda-mode pythonic yaml-mode rvm ruby-tools ruby-test-mode rubocop rspec-mode robe rbenv rake minitest chruby bundler inf-ruby xterm-color shell-pop multi-term eshell-z eshell-prompt-extras esh-help org-projectile org-pomodoro alert log4e markdown-toc org-category-capture org-present gntp org-mime org-download mmm-mode markdown-mode htmlize gnuplot gh-md wsd-mode ob-elixir flycheck-mix flycheck-credo alchemist elixir-mode graphviz-dot-mode web-mode tagedit smeargle slim-mode scss-mode sass-mode pug-mode orgit magit-gitflow less-css-mode haml-mode gitignore-mode gitconfig-mode gitattributes-mode git-timemachine git-messenger git-link fuzzy flycheck-pos-tip pos-tip evil-magit magit magit-popup git-commit ghub let-alist with-editor emmet-mode company-web web-completion-data company-statistics auto-yasnippet ac-ispell auto-complete web-beautify livid-mode skewer-mode simple-httpd json-mode json-snatcher json-reformat yasnippet multiple-cursors js-doc flycheck company-tern dash-functional tern company coffee-mode ws-butler winum which-key wgrep volatile-highlights vi-tilde-fringe uuidgen use-package toc-org spaceline powerline smex restart-emacs request rainbow-delimiters popwin persp-mode pcre2el paradox spinner org-plus-contrib org-bullets open-junk-file neotree move-text macrostep lorem-ipsum linum-relative link-hint ivy-hydra indent-guide hydra hungry-delete hl-todo highlight-parentheses highlight-numbers parent-mode highlight-indentation helm-make helm helm-core google-translate golden-ratio flx-ido flx fill-column-indicator fancy-battery eyebrowse expand-region exec-path-from-shell evil-visualstar evil-visual-mark-mode evil-unimpaired evil-tutor evil-surround evil-search-highlight-persist evil-numbers evil-nerd-commenter evil-mc evil-matchit evil-lisp-state smartparens evil-indent-plus evil-iedit-state iedit evil-exchange evil-escape evil-ediff evil-args evil-anzu anzu evil goto-chg undo-tree eval-sexp-fu highlight elisp-slime-nav dumb-jump popup f dash s diminish define-word counsel-projectile projectile pkg-info epl counsel swiper ivy column-enforce-mode clean-aindent-mode bind-map bind-key auto-highlight-symbol auto-compile packed async aggressive-indent adaptive-wrap ace-window ace-link avy)))
+    (helm-company lua-mode lsp-ui lsp-ivy add-node-modules-path tide typescript-mode import-js grizzl lv transient sql-indent ox-reveal flyspell-correct-ivy flyspell-correct auto-dictionary helm-themes helm-swoop helm-projectile helm-mode-manager helm-flx helm-descbinds helm-ag ace-jump-helm-line yapfify pyvenv pytest pyenv-mode py-isort pip-requirements live-py-mode hy-mode cython-mode company-anaconda anaconda-mode pythonic yaml-mode rvm ruby-tools ruby-test-mode rubocop rspec-mode robe rbenv rake minitest chruby bundler inf-ruby xterm-color shell-pop multi-term eshell-z eshell-prompt-extras esh-help org-projectile org-pomodoro alert log4e markdown-toc org-category-capture org-present gntp org-mime org-download mmm-mode markdown-mode htmlize gnuplot gh-md wsd-mode ob-elixir flycheck-mix flycheck-credo alchemist elixir-mode graphviz-dot-mode web-mode tagedit smeargle slim-mode scss-mode sass-mode pug-mode orgit magit-gitflow less-css-mode haml-mode gitignore-mode gitconfig-mode gitattributes-mode git-timemachine git-messenger git-link fuzzy flycheck-pos-tip pos-tip evil-magit magit magit-popup git-commit ghub let-alist with-editor emmet-mode company-web web-completion-data company-statistics auto-yasnippet ac-ispell auto-complete web-beautify livid-mode skewer-mode simple-httpd json-mode json-snatcher json-reformat yasnippet multiple-cursors js-doc flycheck company-tern dash-functional tern company coffee-mode ws-butler winum which-key wgrep volatile-highlights vi-tilde-fringe uuidgen use-package toc-org spaceline powerline smex restart-emacs request rainbow-delimiters popwin persp-mode pcre2el paradox spinner org-plus-contrib org-bullets open-junk-file neotree move-text macrostep lorem-ipsum linum-relative link-hint ivy-hydra indent-guide hydra hungry-delete hl-todo highlight-parentheses highlight-numbers parent-mode highlight-indentation helm-make helm helm-core google-translate golden-ratio flx-ido flx fill-column-indicator fancy-battery eyebrowse expand-region exec-path-from-shell evil-visualstar evil-visual-mark-mode evil-unimpaired evil-tutor evil-surround evil-search-highlight-persist evil-numbers evil-nerd-commenter evil-mc evil-matchit evil-lisp-state smartparens evil-indent-plus evil-iedit-state iedit evil-exchange evil-escape evil-ediff evil-args evil-anzu anzu evil goto-chg undo-tree eval-sexp-fu highlight elisp-slime-nav dumb-jump popup f dash s diminish define-word counsel-projectile projectile pkg-info epl counsel swiper ivy column-enforce-mode clean-aindent-mode bind-map bind-key auto-highlight-symbol auto-compile packed async aggressive-indent adaptive-wrap ace-window ace-link avy)))
  '(safe-local-variable-values
    (quote
     ((treemacs-use-follow-mode . t)
-     (javascript-backend . tide)
-     (javascript-backend . tern)
-     (javascript-backend . lsp)))))
+     (javascript-backend . tide)))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
